@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patua+One&display=swap">
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stenography Translator</title>
+    <style>
+        body {
+            font-family: Patua One, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .navbar {
+            background-color: #3D6961;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+            .navbar h1 {
+                margin: 0;
+                font-size: 24px;
+                font-weight: bold;
+            }
+
+        .upload-form {
+            margin: 20px;
+        }
+
+        #file-list {
+            margin-top: 10px;
+        }
+
+        #search-section {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        #search-input {
+            padding: 8px;
+            margin-right: 10px;
+            width: 200px;
+            font-size: 16px;
+        }
+
+        #stroke-search {
+            margin-right: 5px;
+        }
+
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>Stenography Translator</h1>
+    </div>
+
+    <div class="upload-form">
+        <!-- Form for uploading the dictionary file -->
+        <form id="upload-form">
+            <label for="dictionary">Upload Dictionary:</label>
+            <input type="file" id="dictionary" name="dictionary" accept=".json" multiple>
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+
+    <!-- Display uploaded file names -->
+    <div id="file-list"></div>
+
+    <!-- Input and button for searching the dictionary -->
+    <div id="search-section">
+        <input type="text" id="search-input" placeholder="Search by stroke or word">
+        <input type="checkbox" id="stroke-search" name="stroke-search">
+        <label for="stroke-search">Stroke Search</label>
+        <button type="button" onclick="search()">Search</button>
+    </div>
+
+    <!-- Div to display the search results -->
+    <div id="results"></div>
+
+    <script>
+        // Object to hold the dictionary data
+        let dictionary = {};
+
+        // Event listener for the form submission
+        document.getElementById('upload-form').onsubmit = function (event) {
+            event.preventDefault();
+            const fileInput = document.getElementById('dictionary');
+            const files = fileInput.files;
+
+            if (files.length === 0) {
+                console.error('Error: No files selected for upload.');
+                return;
+            }
+
+            dictionary = {}; // Clear previous dictionary entries
+
+            let uploadedSuccessfully = [];
+            let failedFiles = [];
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    try {
+                        const fileData = JSON.parse(e.target.result);
+                        dictionary = { ...dictionary, ...fileData }; // Merge dictionaries
+                        uploadedSuccessfully.push(file.name);
+                        console.log(`Dictionary [${file.name}] uploaded successfully:`, fileData);
+                        if (Object.keys(dictionary).length === 0) {
+                            console.error(`Error: Dictionary [${file.name}] is empty!`);
+                            failedFiles.push(file.name);
+                        }
+                    } catch (error) {
+                        console.error(`Error: Dictionary [${file.name}] is corrupted or did not upload correctly.`);
+                        failedFiles.push(file.name);
+                    }
+                };
+
+                reader.readAsText(file);
+            }
+
+            // Display results for all uploaded dictionaries
+            let resultMessage = `Dictionaries ${uploadedSuccessfully.join(', ')} uploaded successfully!`;
+            if (failedFiles.length > 0) {
+                resultMessage += ` Dictionaries ${failedFiles.join(', ')} failed, dictionaries are empty or corrupted!`;
+            }
+            console.log(resultMessage);
+
+            // Update the file list display
+            updateFileList(files);
+        };
+
+        // Function to update the file list display
+        function updateFileList(files) {
+            const fileListDiv = document.getElementById('file-list');
+            fileListDiv.innerHTML = `<p>${files.length} files attached:</p>`;
+            for (let i = 0; i < files.length; i++) {
+                fileListDiv.innerHTML += `<p>${files[i].name}</p>`;
+            }
+        }
+
+        // Function to perform the search
+        function search() {
+            const query = document.getElementById('search-input').value; // Get the search query
+            const strokeSearch = document.getElementById('stroke-search').checked; // Check if stroke search is enabled
+            const resultsDiv = document.getElementById('results'); // Get the results div
+            resultsDiv.innerHTML = ''; // Clear any previous results
+
+            console.log("Search Query:", query);
+            if (Object.keys(dictionary).length === 0) {
+                console.error("Error: Dictionary is empty or not uploaded.");
+                return;
+            }
+
+            let intResults = 0; // Initialize a counter for results
+            let searchResults = []; // Array to hold search results
+
+            if (strokeSearch) {
+                const queryStrokes = query.toUpperCase().split('/'); // Split the query into strokes and convert to uppercase
+
+                // Iterate over each entry in the dictionary
+                for (const [stroke, word] of Object.entries(dictionary)) {
+                    const strokes = stroke.split('/'); // Split the stroke entry into individual strokes
+
+                    // Check if the query strokes match the dictionary strokes
+                    if (arraysEqual(queryStrokes, strokes)) {
+                        resultsDiv.innerHTML += `<p>${stroke} - ${word}</p>`; // Add the matching result to the results div
+                        searchResults.push(`${stroke} - ${word}`);
+                        intResults++; // Increment the results counter
+                    }
+                }
+            } else {
+                // Iterate over each entry in the dictionary
+                for (const [stroke, word] of Object.entries(dictionary)) {
+                    // Check if the query word matches the dictionary word (case insensitive)
+                    if (word.toLowerCase() === query.toLowerCase()) {
+                        resultsDiv.innerHTML += `<p>${stroke} - ${word}</p>`; // Add the matching result to the results div
+                        searchResults.push(`${stroke} - ${word}`);
+                        intResults++; // Increment the results counter
+                    }
+                }
+            }
+
+            if (intResults === 0) {
+                console.error(`Error: Search Query [${query}] is not in dictionary.`);
+            } else {
+                console.log("Results:", intResults);
+                console.log("Return:", searchResults);
+            }
+        }
+
+        // Helper function to check if two arrays are equal
+        function arraysEqual(arr1, arr2) {
+            if (arr1.length !== arr2.length) return false; // If the lengths are not the same, the arrays are not equal
+            for (let i = 0; i < arr1.length; i++) {
+                if (arr1[i] !== arr2[i]) return false; // If any element is not the same, the arrays are not equal
+            }
+            return true; // If all elements are the same, the arrays are equal
+        }
+    </script>
+</body>
+</html>
